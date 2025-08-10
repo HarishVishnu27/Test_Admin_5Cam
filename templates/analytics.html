@@ -67,8 +67,8 @@
 
     <main class="container mx-auto py-6">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {% for cam_id in range(1, 5) %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {% for cam_id in range(1, 6) %}
             <div class="bg-white rounded-lg shadow p-4">
                 <h3 class="text-lg font-semibold mb-2">Camera {{ cam_id }} Summary</h3>
                 <div class="text-sm text-gray-600">
@@ -89,7 +89,7 @@
 
         <!-- Charts -->
         <div class="charts-row">
-            {% for cam_id in range(1, 5) %}
+            {% for cam_id in range(1, 6) %}
             <div class="chart-container">
                 <canvas id="densityChart{{ cam_id }}"></canvas>
             </div>
@@ -97,7 +97,7 @@
         </div>
 
         <!-- Data Tables -->
-        {% for cam_id in range(1, 5) %}
+        {% for cam_id in range(1, 6) %}
         <div class="table-container">
             <h2 class="text-xl font-bold p-4 bg-gray-50">Camera {{ cam_id }} Data</h2>
             <div class="overflow-x-auto">
@@ -142,7 +142,7 @@
 
     <script>
         // Initialize charts for each camera
-        {% for cam_id in range(1, 5) %}
+        {% for cam_id in range(1, 6) %}
         const data{{ cam_id }} = {{ data['cam' ~ cam_id] | tojson }};
         if (data{{ cam_id }}.length > 0) {  // Only create chart if data exists
             const ctx{{ cam_id }} = document.getElementById('densityChart{{ cam_id }}').getContext('2d');

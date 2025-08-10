@@ -61,7 +61,7 @@ PROCESSED_FOLDER = 'static/processed/'
 DATABASE = 'traffic_multi.db'
 FRAME_SKIP = 6
 MAX_QUEUE_SIZE = 32
-PROCESSING_TIMES = {f'cam{i+1}': deque(maxlen=50) for i in range(4)}
+PROCESSING_TIMES = {f'cam{i+1}': deque(maxlen=50) for i in range(5)}
 IMAGE_SAVE_INTERVAL = 2  # Save images every 10 seconds
 PROCESS_DURATION = 2  # Process each stream for 2 seconds
 import os
@@ -72,7 +72,8 @@ RTSP_URLS = {
     'cam1': "rtsp://192.168.0.51:554/rtsp/streaming?channel=1&subtype=1&onvif_metadata=true",
     'cam2': "rtsp://192.168.0.52:554/rtsp/streaming?channel=1&subtype=1&onvif_metadata=true",
     'cam3': "rtsp://192.168.0.53:554/rtsp/streaming?channel=1&subtype=1&onvif_metadata=true",
-    'cam4': "rtsp://192.168.0.54:554/rtsp/streaming?channel=1&subtype=1&onvif_metadata=true"}
+    'cam4': "rtsp://192.168.0.54:554/rtsp/streaming?channel=1&subtype=1&onvif_metadata=true",
+    'cam5': "rtsp://192.168.0.55:554/rtsp/streaming?channel=1&subtype=1&onvif_metadata=true"}
 
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
@@ -112,6 +113,13 @@ DEFAULT_REGIONS = {
     'cam4': {
         'R1': {
             'vertices': np.array([(53, 412), (160, 208), (318, 205), (389, 408)], dtype=np.int32),
+            'weight': 1.0,
+            'color': (0, 255, 0)
+        }
+    },
+    'cam5': {
+        'R1': {
+            'vertices': np.array([(59, 378), (479, 410), (474, 185), (311, 177)], dtype=np.int32),
             'weight': 1.0,
             'color': (0, 255, 0)
         }
@@ -160,7 +168,7 @@ def init_db(database_name):
     cursor = conn.cursor()
 
     # Create tables for each camera (updated to single region)
-    for cam_id in range(1, 5):
+    for cam_id in range(1, 6):
         cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS traffic_data_cam{cam_id} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -413,7 +421,7 @@ def process_camera_stream(cam_id, duration):
 
 def cyclic_processing():
     while True:
-        for cam_id in range(1, 5):
+        for cam_id in range(1, 6):
             process_camera_stream(cam_id, PROCESS_DURATION)
             time.sleep(0.1)  # Small delay between cameras
 
@@ -422,7 +430,7 @@ def cyclic_processing():
 def index():
     # Get latest processed images for all cameras
     latest_images = {}
-    for cam_id in range(1, 5):
+    for cam_id in range(1, 6):
         cam_folder = os.path.join(PROCESSED_FOLDER, f'cam{cam_id}')
         if os.path.exists(cam_folder):
             files = [f for f in os.listdir(cam_folder) if f.endswith('.jpg')]
@@ -548,7 +556,7 @@ def analytics():
         cursor = conn.cursor()
 
         data = {}
-        for cam_id in range(1, 5):
+        for cam_id in range(1, 6):
             try:
                 cursor.execute(f'''SELECT 
                     id, timestamp, r1_vehicle_count, r1_density,
@@ -567,7 +575,7 @@ def analytics():
 
         # Calculate aggregates for each camera
         aggregates = {}
-        for cam_id in range(1, 5):
+        for cam_id in range(1, 6):
             cam_data = data[f'cam{cam_id}']
             if cam_data:
                 weighted_densities = [row[4] for row in cam_data]  # weighted_density is at index 4
@@ -600,7 +608,7 @@ def camera_stats():
         }
 
         # Query the latest data for all cameras
-        for camera_id in range(1, 5):
+        for camera_id in range(1, 6):
             try:
                 cursor.execute(f'''SELECT 
                                 timestamp,
@@ -656,7 +664,7 @@ def vehicle_detect():
         }
 
         # Query the latest VDC status for all cameras
-        for camera_id in range(1, 5):
+        for camera_id in range(1, 6):
             try:
                 cursor.execute(f'''SELECT vdc{camera_id}
                              FROM traffic_data_cam{camera_id} 
@@ -681,7 +689,8 @@ def vehicle_detect():
             'vdc1': 0,
             'vdc2': 0,
             'vdc3': 0,
-            'vdc4': 0
+            'vdc4': 0,
+            'vdc5': 0
         }), 500
 
 

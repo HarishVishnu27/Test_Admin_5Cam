@@ -9,7 +9,7 @@
     <style>
         .camera-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 1.5rem;
             padding: 1.5rem;
         }
@@ -95,7 +95,7 @@
 
     <main class="container mx-auto py-6">
         <div class="camera-grid">
-            {% for cam_id in range(1, 5) %}
+            {% for cam_id in range(1, 6) %}
             <div class="camera-container">
                 <h2 class="text-xl font-bold mb-4">Camera {{ cam_id }}</h2>
                 <div class="camera-feed" id="cam{{ cam_id }}-container">
@@ -172,7 +172,7 @@
                 const data = await response.json();
 
                 // Update each camera's stats
-                for (let camId = 1; camId <= 4; camId++) {
+                for (let camId = 1; camId <= 5; camId++) {
                     const camData = data.cameras[`cam${camId}`];
                     if (camData && !camData.status) {
                         // Update vehicle count
@@ -206,7 +206,7 @@
                 if (!response.ok) throw new Error('Failed to fetch VDC data');
                 const data = await response.json();
 
-                for (let camId = 1; camId <= 4; camId++) {
+                for (let camId = 1; camId <= 5; camId++) {
                     const vdcActive = data[`vdc${camId}`] === 1;
                     const indicator = document.getElementById(`vdc-indicator-cam${camId}`);
                     const status = document.getElementById(`vdc-status-cam${camId}`);
@@ -228,7 +228,7 @@
 
         // Update camera feeds
         function updateCameraFeeds() {
-            {% for cam_id in range(1, 5) %}
+            {% for cam_id in range(1, 6) %}
             const cam{{ cam_id }}Feed = document.getElementById('cam{{ cam_id }}-feed');
             if (cam{{ cam_id }}Feed) {
                 const timestamp = new Date().getTime();
