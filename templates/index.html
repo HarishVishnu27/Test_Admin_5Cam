@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Monitoring Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .camera-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+        .camera-container {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+        .camera-feed {
+            position: relative;
+            aspect-ratio: 16/9;
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .camera-feed img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .camera-overlay {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            z-index: 10;
+        }
+        .timestamp {
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            z-index: 10;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+     <header class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Traffic Monitoring Dashboard</h1>
+                <nav class="mt-2 flex space-x-4">
+                    <a href="{{ url_for('index') }}" class="text-white hover:text-gray-300">Home</a>
+                    <a href="{{ url_for('analytics') }}" class="text-white hover:text-gray-300">Analytics</a>
+                    <a href="{{ url_for('admin_panel') }}" class="text-white hover:text-gray-300">Admin Panel</a>
+                </nav>
+            </div>
+            <a href="{{ url_for('logout') }}"
+               class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+                Logout
+            </a>
+        </div>
+    </header>
+
+    <main class="container mx-auto py-6">
+        <div class="camera-grid">
+            {% for cam_id in range(1, 5) %}
+            <div class="camera-container">
+                <h2 class="text-xl font-bold mb-4">Camera {{ cam_id }}</h2>
+                <div class="camera-feed" id="cam{{ cam_id }}-container">
+                    {% if latest_images['cam' ~ cam_id] %}
+                        <img src="{{ url_for('static', filename='processed/cam' ~ cam_id ~ '/' ~ latest_images['cam' ~ cam_id]) }}"
+                             alt="Camera {{ cam_id }}"
+                             id="cam{{ cam_id }}-feed"
+                             class="w-full h-full object-cover">
+                    {% else %}
+                        <div class="flex items-center justify-center h-full">
+                            <p class="text-gray-500">No image available</p>
+                        </div>
+                    {% endif %}
+                    <div class="camera-overlay">
+                        <span class="font-bold">Camera {{ cam_id }}</span>
+                    </div>
+                    <div class="timestamp" id="timestamp-cam{{ cam_id }}">
+                        Updating...
+                    </div>
+                </div>
+
+                <div class="mt-4 p-2 rounded bg-gray-50">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-sm font-semibold">Vehicle Count:</span>
+                            <span id="vehicle-count-cam{{ cam_id }}" class="font-bold ml-2">-</span>
+                        </div>
+                        <div>
+                            <span class="text-sm font-semibold">Density:</span>
+                            <span id="density-cam{{ cam_id }}" class="font-bold ml-2">-</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center mt-2">
+                        <div id="vdc-indicator-cam{{ cam_id }}"
+                             class="status-indicator bg-gray-400"></div>
+                        <span id="vdc-status-cam{{ cam_id }}"
+                              class="text-sm font-semibold">VDC{{ cam_id }}: Inactive</span>
+                    </div>
+                    <div class="progress-bar mt-2">
+                        <div id="density-progress-cam{{ cam_id }}"
+                             class="progress-fill bg-blue-500"
+                             style="width: 0%">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            <p>© 2024 Traffic Monitoring System. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        function formatTimestamp(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+
+        async function updateCameraStats() {
+            try {
+                const response = await fetch('/CameraStats');
+                if (!response.ok) throw new Error('Failed to fetch data');
+                const data = await response.json();
+
+                // Update each camera's stats
+                for (let camId = 1; camId <= 4; camId++) {
+                    const camData = data.cameras[`cam${camId}`];
+                    if (camData && !camData.status) {
+                        // Update vehicle count
+                        document.getElementById(`vehicle-count-cam${camId}`).textContent =
+                            camData.vehicle_count || '0';
+
+                        // Update density
+                        const density = camData.density || 0;
+                        document.getElementById(`density-cam${camId}`).textContent =
+                            `${density.toFixed(1)}%`;
+
+                        // Update density progress bar
+                        document.getElementById(`density-progress-cam${camId}`).style.width =
+                            `${density}%`;
+
+                        // Update timestamp
+                        if (camData.timestamp) {
+                            document.getElementById(`timestamp-cam${camId}`).textContent =
+                                `Last updated: ${formatTimestamp(camData.timestamp)}`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating camera stats:', error);
+            }
+        }
+
+        async function updateVDC() {
+            try {
+                const response = await fetch('/VehicleDetect');
+                if (!response.ok) throw new Error('Failed to fetch VDC data');
+                const data = await response.json();
+
+                for (let camId = 1; camId <= 4; camId++) {
+                    const vdcActive = data[`vdc${camId}`] === 1;
+                    const indicator = document.getElementById(`vdc-indicator-cam${camId}`);
+                    const status = document.getElementById(`vdc-status-cam${camId}`);
+
+                    if (vdcActive) {
+                        indicator.classList.remove('bg-gray-400');
+                        indicator.classList.add('bg-green-500');
+                        status.textContent = `VDC${camId}: Active`;
+                    } else {
+                        indicator.classList.remove('bg-green-500');
+                        indicator.classList.add('bg-gray-400');
+                        status.textContent = `VDC${camId}: Inactive`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating VDC:', error);
+            }
+        }
+
+        // Update camera feeds
+        function updateCameraFeeds() {
+            {% for cam_id in range(1, 5) %}
+            const cam{{ cam_id }}Feed = document.getElementById('cam{{ cam_id }}-feed');
+            if (cam{{ cam_id }}Feed) {
+                const timestamp = new Date().getTime();
+                cam{{ cam_id }}Feed.src = "{{ url_for('static', filename='processed/cam' ~ cam_id ~ '/' ~ latest_images['cam' ~ cam_id]) if latest_images['cam' ~ cam_id] }}?t=" + timestamp;
+            }
+            {% endfor %}
+        }
+
+        // Function to update all stats and camera feeds
+        async function updateAllStats() {
+            await Promise.all([
+                updateVDC(),
+                updateCameraStats()
+            ]);
+            updateCameraFeeds();
+        }
+
+        // Initial update
+        updateAllStats();
+
+        // Set up periodic updates every second
+        setInterval(updateAllStats, 1000);
+    </script>
+</body>
+</html>

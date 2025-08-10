@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .charts-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1rem;
+            margin: 20px 0;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1rem;
+            height: 400px;
+        }
+        .table-container {
+            margin: 20px 0;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+        .data-table tr:hover {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+     <header class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Traffic Analytics</h1>
+                <nav class="mt-2 flex space-x-4">
+                    <a href="{{ url_for('index') }}" class="text-white hover:text-gray-300">Home</a>
+                    <a href="{{ url_for('analytics') }}" class="text-white hover:text-gray-300">Analytics</a>
+                    <a href="{{ url_for('admin_panel') }}" class="text-white hover:text-gray-300">Admin Panel</a>
+                </nav>
+            </div>
+            <a href="{{ url_for('logout') }}"
+               class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+                Logout
+            </a>
+        </div>
+    </header>
+
+    <main class="container mx-auto py-6">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {% for cam_id in range(1, 5) %}
+            <div class="bg-white rounded-lg shadow p-4">
+                <h3 class="text-lg font-semibold mb-2">Camera {{ cam_id }} Summary</h3>
+                <div class="text-sm text-gray-600">
+                    <p>Average Vehicle Density:
+                        <span id="avg-density-cam{{ cam_id }}">
+                            {{ "%.1f"|format(aggregates['cam' ~ cam_id]['avg_density']) }}%
+                        </span>
+                    </p>
+                    <p>Peak Vehicle Count:
+                        <span id="peak-count-cam{{ cam_id }}">
+                            {{ aggregates['cam' ~ cam_id]['peak_count'] }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-row">
+            {% for cam_id in range(1, 5) %}
+            <div class="chart-container">
+                <canvas id="densityChart{{ cam_id }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Data Tables -->
+        {% for cam_id in range(1, 5) %}
+        <div class="table-container">
+            <h2 class="text-xl font-bold p-4 bg-gray-50">Camera {{ cam_id }} Data</h2>
+            <div class="overflow-x-auto">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Timestamp</th>
+                            <th>Vehicle Count</th>
+                            <th>Density</th>
+                            <th>Weighted Count</th>
+                            <th>Weighted Density</th>
+                            <th>VDC{{ cam_id }}</th>
+                            <th>Processing Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data['cam' ~ cam_id] %}
+                        <tr>
+                            <td>{{ row[0] }}</td>
+                            <td>{{ row[1] }}</td>
+                            <td>{{ row[2] }}</td>
+                            <td>{{ "%.1f"|format(row[3]) }}%</td>
+                            <td>{{ row[4] }}</td>
+                            <td>{{ "%.1f"|format(row[5]) }}%</td>
+                            <td>{{ "Yes" if row[6] else "No" }}</td>
+                            <td>{{ "%.2f"|format(row[7]) }}ms</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            <p>© 2024 Traffic Monitoring System. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize charts for each camera
+        {% for cam_id in range(1, 5) %}
+        const data{{ cam_id }} = {{ data['cam' ~ cam_id] | tojson }};
+        if (data{{ cam_id }}.length > 0) {  // Only create chart if data exists
+            const ctx{{ cam_id }} = document.getElementById('densityChart{{ cam_id }}').getContext('2d');
+            new Chart(ctx{{ cam_id }}, {
+                type: 'line',
+                data: {
+                    labels: data{{ cam_id }}.map(row => row[1]),  // timestamp
+                    datasets: [
+                        {
+                            label: 'Vehicle Density',
+                            data: data{{ cam_id }}.map(row => row[5]),  // weighted_density
+                            borderColor: 'rgb(0, 255, 0)',
+                            backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Camera {{ cam_id }} - Weighted Density Over Time'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Weighted Density (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        {% endfor %}
+    </script>
+</body>
+</html>
